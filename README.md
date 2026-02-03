@@ -2,6 +2,8 @@
 
 [![arXiv](https://img.shields.io/badge/arXiv-2408.01437-b31b1b.svg)](https://arxiv.org/abs/2408.01437)
 [![Project Page](https://img.shields.io/website?url=https%3A%2F%2Fqq456cvb.github.io%2Fprojects%2Fimg2cad&label=Project%20Page)](https://qq456cvb.github.io/projects/img2cad)
+[![Hugging Face Models](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Models-yellow)](https://huggingface.co/qq456cvb/img2cad)
+[![Hugging Face Dataset](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Dataset-blue)](https://huggingface.co/datasets/qq456cvb/img2cad-dataset)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/release/python-380/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -99,7 +101,46 @@ source img2cad_env/bin/activate  # On Windows: img2cad_env\Scripts\activate
 pip install -r requirements.txt
 ```
 
+### Pretrained Models
+
+Download pretrained model checkpoints from Hugging Face:
+
+```bash
+# Download all models
+huggingface-cli download qq456cvb/img2cad --local-dir data/ckpts/hf
+
+# Or download specific models
+huggingface-cli download qq456cvb/img2cad --include "llamaft/chair/*" --local-dir data/ckpts/hf
+huggingface-cli download qq456cvb/img2cad --include "trassembler/chair/*" --local-dir data/ckpts/hf
+```
+
+Available checkpoints:
+| Model | Category | Path |
+|-------|----------|------|
+| LlamaFT | Chair | `llamaft/chair/` |
+| LlamaFT | Table | `llamaft/table/` |
+| LlamaFT | Storage Furniture | `llamaft/storagefurniture/` |
+| TrAssembler | Chair | `trassembler/chair/` |
+| TrAssembler | Table | `trassembler/table/` |
+| TrAssembler | Storage Furniture | `trassembler/storagefurniture/` |
+
 ### Dataset Setup
+
+#### Option 1: Download from Hugging Face (Recommended)
+
+```bash
+# Install huggingface_hub if not already installed
+pip install huggingface_hub
+
+# Download the entire dataset
+huggingface-cli download qq456cvb/img2cad-dataset --repo-type dataset --local-dir data
+
+# Or download specific directories
+huggingface-cli download qq456cvb/img2cad-dataset --repo-type dataset --include "raw_annotated/*" --local-dir data
+huggingface-cli download qq456cvb/img2cad-dataset --repo-type dataset --include "blender_renderings/*" --local-dir data
+```
+
+#### Option 2: Download from Google Drive
 
 1. Download the raw annotated dataset to `data/raw_annotated/`
 2. Download rendered images to `data/blender_renderings/`
@@ -108,7 +149,7 @@ pip install -r requirements.txt
 5. Download symmetry labels for each object to `data/sym_labels/`
 6. Ensure train/test splits are in `data/splits/`
 
-All datasets are available at this [Google Drive link](https://drive.google.com/drive/folders/1HZYa5SF5Wt4f3iq6zNFaCXHUeKuF2p-D?usp=sharing).
+All datasets are also available at this [Google Drive link](https://drive.google.com/drive/folders/1HZYa5SF5Wt4f3iq6zNFaCXHUeKuF2p-D?usp=sharing).
 
 Expected data structure:
 ```
@@ -254,11 +295,12 @@ The evaluation script computes:
 If you find this work useful, please cite our paper:
 
 ```bibtex
-@article{you2024img2cad,
-  title={Img2CAD: Reverse Engineering 3D CAD Models from Images through VLM-Assisted Conditional Factorization},
+@inproceedings{you2025img2cad,
+  title={Img2cad: Reverse engineering 3d cad models from images through vlm-assisted conditional factorization},
   author={You, Yang and Uy, Mikaela Angelina and Han, Jiaqi and Thomas, Rahul and Zhang, Haotong and Du, Yi and Chen, Hansheng and Engelmann, Francis and You, Suya and Guibas, Leonidas},
-  journal={arXiv preprint arXiv:2408.01437},
-  year={2024}
+  booktitle={Proceedings of the SIGGRAPH Asia 2025 Conference Papers},
+  pages={1--12},
+  year={2025}
 }
 ```
 
@@ -279,5 +321,8 @@ For questions or issues, please:
 ## 🔗 Links
 
 - [Paper (arXiv)](https://arxiv.org/abs/2408.01437)
+- [Paper (ACM)](https://doi.org/10.1145/3757377.3763891)
 - [Project Page](https://qq456cvb.github.io/projects/img2cad)
-- [Dataset](https://drive.google.com/drive/folders/1HZYa5SF5Wt4f3iq6zNFaCXHUeKuF2p-D?usp=sharing)
+- [Models (Hugging Face)](https://huggingface.co/qq456cvb/img2cad)
+- [Dataset (Hugging Face)](https://huggingface.co/datasets/qq456cvb/img2cad-dataset)
+- [Dataset (Google Drive)](https://drive.google.com/drive/folders/1HZYa5SF5Wt4f3iq6zNFaCXHUeKuF2p-D?usp=sharing)
