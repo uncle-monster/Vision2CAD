@@ -63,7 +63,8 @@ Img2CAD/
 │       ├── table_pkl/         # Processed table data
 │       └── storagefurniture_pkl/
 ├── utils/                     # Utility functions
-│   └── cmd_to_vec.py          # CAD command to vector conversion
+│   ├── cmd_to_vec.py          # CAD command to vector conversion
+│   └── partseg.py             # Part segmentation evaluation module
 ├── cadlib/                    # CAD processing library
 ├── GMFlow/                    # Gaussian Mixture Flow submodule
 └── requirements.txt           # All project dependencies
@@ -123,6 +124,9 @@ Available checkpoints:
 | TrAssembler | Chair | `trassembler/chair/` |
 | TrAssembler | Table | `trassembler/table/` |
 | TrAssembler | Storage Furniture | `trassembler/storagefurniture/` |
+| PartSeg (PointNet2) | Chair | `partseg/chair/` |
+| PartSeg (PointNet2) | Table | `partseg/table/` |
+| PartSeg (PointNet2) | Storage Furniture | `partseg/storagefurniture/` |
 
 ### Dataset Setup
 
@@ -184,13 +188,28 @@ data/
 ├── chair_mean_scale_stats.json
 ├── table_mean_scale_stats.json
 ├── storagefurniture_mean_scale_stats.json
-├── output/                    # Created during inference
+├── anno_id2model_id_chair.json      # Mapping from PartNet anno_id to ShapeNet model_id
+├── anno_id2model_id_table.json
+├── anno_id2model_id_storagefurniture.json
+├── shapenet_partseg/                # Part segmentation annotations (unified txt format)
+│   ├── synsetoffset2category.txt    # Category to synset mapping
+│   ├── 03001627/                    # Chair annotations (*.txt files)
+│   ├── 04379243/                    # Table annotations (*.txt files)
+│   └── storagefurniture/            # Storagefurniture annotations (*.txt files)
+├── ckpts/                           # Model checkpoints
+│   ├── llamaft/
+│   ├── trassembler/
+│   └── partseg/                     # PointNet2 part segmentation checkpoints
+│       ├── chair/best_model.pth
+│       ├── table/best_model.pth
+│       └── storagefurniture/best_model.pth
+├── output/                          # Created during inference
 │   ├── llamaft_h5/
 │   │   ├── chair/
 │   │   ├── table/
 │   │   └── storagefurniture/
 │   └── trassembler_h5/
-└── trassembler_data/          # Created during dataset preparation
+└── trassembler_data/                # Created during dataset preparation
     ├── chair_pkl/
     ├── table_pkl/
     └── storagefurniture_pkl/
@@ -232,6 +251,11 @@ python TrAssembler/train.py --category chair --batch_size 16 --max_epochs 150 --
 3. **Evaluate the model**:
 ```bash
 python TrAssembler/eval.py --model_dir data/ckpts/trassembler/chair --text_emb_retrieval
+```
+
+4. **Compute metrics only** (skip inference, use existing outputs):
+```bash
+python TrAssembler/eval.py --metrics_only --output_dir data/output/trassembler_h5/chair --category chair --eval_partseg  --text_emb_retrieval
 ```
 
 ## 📊 Configuration
@@ -287,7 +311,11 @@ gm:
 
 The evaluation script computes:
 - **Chamfer Distance (CD)**: Geometric similarity to ground truth
-- **Segmentation Accuracy and mIoU**: Part-level accuracy metrics (Coding cleaning, coming soon)
+- **Occupancy (OCC)**: Success rate of valid CAD model generation
+- **Part Segmentation Accuracy**: Per-point part classification accuracy
+- **Part mIoU**: Mean Intersection over Union for part segmentation
+
+**Note:** The number of valid samples for part segmentation evaluation may be fewer than the total test set size, as multiple PartNet model IDs can correspond to the same ShapeNet model.
 
 
 ## 📝 Citation

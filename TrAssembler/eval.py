@@ -29,6 +29,7 @@ from utils.misc import render_nvdiffrast_rgb
 from utils.diffsdf import param2mesh_torch, param2sdf
 import logging
 from scipy.spatial.transform import Rotation
+from utils.partseg import evaluate_partseg
 
 torch.set_grad_enabled(False)
 # Set the trimesh logger to suppress everything below ERROR
@@ -367,6 +368,89 @@ def get_clip_features(clip_model, texts, device):
     return text_features
 
 
+def compute_metrics_only(args, category: str):
+    """Compute metrics from existing output files without running inference."""
+    print(f'\n{"="*60}')
+    print(f'Metrics-Only Mode: Computing metrics from existing outputs')
+    print(f'{"="*60}')
+    
+    out_dir = Path(args.output_dir)
+    if not out_dir.exists():
+        print(f"Error: Output directory does not exist: {out_dir}")
+        return
+    
+    # Load test IDs
+    test_ids_file = f'{args.data_root}/splits/{category}_test_ids.txt'
+    if not os.path.exists(test_ids_file):
+        print(f"Error: Test IDs file not found: {test_ids_file}")
+        return
+    
+    test_ids = open(test_ids_file).read().splitlines()
+    test_ids = [int(i) for i in test_ids]
+    
+    gt_data_root = Path(f'{args.data_root}/raw_annotated/{category}')
+    
+    occs = []
+    cds = []
+    
+    print(f"Evaluating {len(test_ids)} samples from {out_dir}")
+    
+    for data_id in tqdm(test_ids, desc='Computing metrics'):
+        obj_out_dir = out_dir / f'{data_id}'
+        final_obj_path = obj_out_dir / 'final.obj'
+        
+        if final_obj_path.exists():
+            occs.append(1.)
+            
+            # Compute Chamfer Distance if GT exists
+            gt_mesh_path = gt_data_root / f'{data_id}' / 'raw.obj'
+            if gt_mesh_path.exists():
+                try:
+                    gt_mesh = trimesh.load_mesh(str(gt_mesh_path))
+                    pred_mesh = trimesh.load_mesh(str(final_obj_path))
+                    cd = compute_cd(gt_mesh, pred_mesh, normalize=True)
+                    cds.append(cd)
+                except Exception as e:
+                    print(f"Error computing CD for {data_id}: {e}")
+        else:
+            occs.append(0.)
+    
+    # Calculate metrics ignoring NaNs
+    valid_cds = [c for c in cds if not np.isnan(c)]
+    mean_occ = np.mean(occs) if occs else 0.0
+    mean_cd = np.mean(valid_cds) if valid_cds else float('nan')
+    
+    print(f'\n{"="*60}')
+    print(f'Geometry Evaluation Results ({category})')
+    print(f'{"="*60}')
+    print(f'Total test samples: {len(test_ids)}')
+    print(f'Successful generations (OCC > 0): {sum(occs)}')
+    print(f'Valid CD computations: {len(valid_cds)}')
+    print(f'Mean OCC: {mean_occ:.4f}')
+    print(f'Mean CD (valid only): {mean_cd:.4f}')
+    
+    # Part Segmentation Evaluation
+    if args.eval_partseg:
+        print(f'\n{"="*60}')
+        print(f'Part Segmentation Evaluation ({category})')
+        print(f'{"="*60}')
+        
+        partseg_metrics = evaluate_partseg(
+            obj_dir=str(out_dir),
+            category=category.capitalize() if category != 'storagefurniture' else 'Storagefurniture',
+            checkpoint_dir=args.partseg_ckpt_dir,
+            data_root=args.data_root,
+            batch_size=32,
+            num_points=2048,
+            num_votes=3,
+            verbose=True,
+        )
+        
+        print(f'\nSummary:')
+        print(f'  Part Segmentation Accuracy: {partseg_metrics["accuracy"]:.4f}')
+        print(f'  Part mIoU (Instance Avg): {partseg_metrics["instance_avg_iou"]:.4f}')
+
+
 def main():
     """Main evaluation function."""
     parser = argparse.ArgumentParser(description="Evaluate TrAssembler model.")
@@ -377,8 +461,31 @@ def main():
     parser.add_argument("--skip_processed", action='store_true', help="Skip processed objects.")
     parser.add_argument("--sym_labels_dir", type=str, default='data/sym_labels', help="Symmetry label directory.")
     parser.add_argument("--save_intermediate", action='store_true', help="Save intermediate step outputs (h5, obj, png) per timestep under out_dir/data_id/intermediate.")
+    parser.add_argument("--eval_partseg", action='store_true', help="Evaluate part segmentation accuracy and mIoU.")
+    parser.add_argument("--partseg_ckpt_dir", type=str, default='data/ckpts/partseg', help="Part segmentation checkpoint directory.")
+    parser.add_argument("--metrics_only", action='store_true', help="Skip inference, only compute metrics from existing outputs.")
+    parser.add_argument("--category", type=str, default=None, help="Category for metrics-only mode (chair, table, storagefurniture). If not set, inferred from model_dir config.")
     
     args = parser.parse_args()
+    
+    # Metrics-only mode: skip inference, just compute metrics from existing outputs
+    if args.metrics_only:
+        # Determine category
+        if args.category:
+            category = args.category
+        else:
+            # Try to infer from output_dir path
+            out_dir_parts = Path(args.output_dir).parts
+            if out_dir_parts:
+                category = out_dir_parts[-1]
+            else:
+                print("Error: --category must be specified in metrics-only mode if not inferable from output_dir")
+                return
+        
+        compute_metrics_only(args, category)
+        return
+    
+    # Normal inference mode
     save_intermediate = args.save_intermediate
     skip_processed = args.skip_processed
     sym_labels_dir = args.sym_labels_dir
@@ -572,11 +679,36 @@ def main():
     mean_occ = np.mean(occs) if occs else 0.0
     mean_cd = np.mean(valid_cds) if valid_cds else float('nan')
 
+    print(f'\n{"="*60}')
+    print(f'Geometry Evaluation Results ({config.category})')
+    print(f'{"="*60}')
     print(f'Total processed: {len(test_ids)}')
     print(f'Successful generations (OCC > 0): {sum(occs)}')
     print(f'Valid CD computations: {len(valid_cds)}')
     print(f'Mean OCC: {mean_occ:.4f}')
     print(f'Mean CD (valid only): {mean_cd:.4f}')
+
+    # Part Segmentation Evaluation
+    if args.eval_partseg:
+        print(f'\n{"="*60}')
+        print(f'Part Segmentation Evaluation ({config.category})')
+        print(f'{"="*60}')
+        
+        partseg_metrics = evaluate_partseg(
+            obj_dir=str(out_dir),
+            category=config.category.capitalize() if config.category != 'storagefurniture' else 'Storagefurniture',
+            checkpoint_dir=args.partseg_ckpt_dir,
+            data_root=args.data_root,
+            batch_size=32,
+            num_points=2048,
+            num_votes=3,
+            verbose=True,
+        )
+        
+        print(f'\nSummary:')
+        print(f'  Part Segmentation Accuracy: {partseg_metrics["accuracy"]:.4f}')
+        print(f'  Part mIoU (Instance Avg): {partseg_metrics["instance_avg_iou"]:.4f}')
+
 
 if __name__ == "__main__":
     main()
