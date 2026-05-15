@@ -424,9 +424,12 @@ class GMFlowModel(pl.LightningModule):
             mask_idx_1d = mask_idx[:, 0] * n_part * n_line + mask_idx[:, 1] * n_line + mask_idx[:, 2]
             if mask.sum() > 0:
                 # Select only the arguments corresponding to active (non-padded) positions
+                n_args = CMD_ARGS_MASK[i].sum()
+                if n_args == 0:
+                    continue  # skip command types with no valid args (e.g. SOL)
                 args_masked = args[mask][:, np.where(CMD_ARGS_MASK[i] > 0)[0]]  # K x NA
                 args_emb_masked = self.args_emb[i](args_masked)  # K x D
-                args_emb_list.append(scatter_add(args_emb_masked, mask_idx_1d, dim=0, 
+                args_emb_list.append(scatter_add(args_emb_masked, mask_idx_1d, dim=0,
                                                  dim_size=n_batch * n_part * n_line).reshape(n_batch, n_part, n_line, -1))
         # Sum over contributions from all command types
         args_emb = torch.stack(args_emb_list, dim=0).sum(dim=0)  # [B, P, L, D]
@@ -490,7 +493,7 @@ class GMFlowModel(pl.LightningModule):
             mask = command == i
             mask_idx = torch.nonzero(mask)
             mask_idx_1d = mask_idx[:, 0] * n_part * n_line + mask_idx[:, 1] * n_line + mask_idx[:, 2]
-            if mask.sum() > 0:
+            if mask.sum() > 0 and n_args > 0:
                 x_mask = line_mask[:, :, None].repeat(1, 1, n_args).reshape(n_batch * n_part, -1)
                 token = torch.zeros(n_batch * n_part, n_line * n_args, 1, device=context.device)
                 decoder_out = self.decoder_head[i](token, x_mask=x_mask, context_mask=line_mask, context=context)  # (B * P, L * N, D)

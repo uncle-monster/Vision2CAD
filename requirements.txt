@@ -47,3 +47,6 @@ visdom==0.2.4
 
 # CUDA rendering (optional, for GPU acceleration)
 nvdiffrast @ git+https://github.com/NVlabs/nvdiffrast.git@729261dc64c4241ea36efda84fbf532cc8b425b8
+
+# Background removal for phone photo preprocessing
+rembg==2.0.60

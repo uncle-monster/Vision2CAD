@@ -622,8 +622,8 @@ def main():
         cmd = batch['command'][i]  # [P, L]
         cmd_mask = batch['command_mask'][i]  # [P, L]
         arg_mask = batch['args_mask'][i]  # [P, L, N]
-        args = batch['args'][i]  # [P, L, N]
-        args[arg_mask > 0] = pred_args[i][arg_mask > 0]  # overwrite the args with predicted args
+        batch_args = batch['args'][i]  # [P, L, N]
+        batch_args[arg_mask > 0] = pred_args[i][arg_mask > 0]  # overwrite the args with predicted args
 
         part_cad_vec_out = {} # Renamed to avoid conflict
         for p in range(cmd_mask.shape[0]):
@@ -631,7 +631,7 @@ def main():
                 part_vec = []
                 for l in range(cmd_mask.shape[1]):
                     if cmd_mask[p][l] > 0:
-                        arg = args[p][l].cpu().numpy()
+                        arg = batch_args[p][l].cpu().numpy()
                         cmd_type = cmd[p][l].item()
                         if cmd_type == 1: # ARC
                             # Ensure angle is within valid range if needed, though denormalization should handle it
