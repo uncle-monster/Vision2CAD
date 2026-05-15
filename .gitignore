@@ -178,4 +178,17 @@ temp/
 renderings/
 visualizations/
 
-.cursorignore
+# Claude / Agents
+.agents/
+.claude/
+skills-lock.json
+
+# Generated files
+*.pptx
+*.html
+
+# Misc
+*.pdf
+*.md
+!README.md
+!GUIDE*.md
